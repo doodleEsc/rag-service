@@ -9,1024 +9,7 @@ import argparse
 # - max_gap_lines: 允许的最大行间隔（超过此间隔的代码块不会合并）
 # - preserve_order: 是否保持原始顺序
 
-LANGUAGE_NODE_MAP = {
-    "python": {
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_definition) @function
-            )
-            """
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class_definition) @class
-            )
-            """
-        ],
-        "decorated_definition": [
-            """
-            (
-              (comment)* @comment.decorated_definition
-              .
-              (decorated_definition) @decorated_definition
-            )
-            """
-        ],
-        "variable_assignment": [
-            """
-            (
-              (comment)* @comment.variable_assignment
-              .
-              (module
-                (expression_statement
-                    (assignment) @variable_assignment
-                )
-              )
-            )
-            """
-        ],
-        "import": [
-            """
-            (
-              (comment)* @comment.import
-              .
-              (import_statement) @import
-            )
-            """,
-            """
-            (
-              (comment)* @comment.import
-              .
-              (import_from_statement) @import
-            )
-            """,
-        ],
-        # Python import合并配置
-        "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": -1, "preserve_order": True}
-        },
-    },
-    "go": {
-        "package": [
-            """
-            (
-              (comment)* @comment.package
-              .
-              (package_clause) @package
-            )
-            """
-        ],
-        "import": [
-            """
-            (
-              (comment)* @comment.import
-              .
-              (import_declaration) @import
-            )
-            """
-        ],
-        "struct": [
-            """
-            (
-              (comment)* @comment.struct
-              .
-              (type_declaration
-                (type_spec
-                  type: (struct_type)
-                )
-              ) @struct
-            )
-            """
-        ],
-        "interface": [
-            """
-            (
-              (comment)* @comment.interface  
-              .
-              (type_declaration
-                (type_spec type: (interface_type))
-              ) @interface
-            )
-            """
-        ],
-        "type_alias": [
-            """
-            (
-              (comment)* @comment.type_alias
-              .
-              (type_declaration
-                (type_spec
-                  type: (type_identifier)
-                )
-              ) @type_alias
-            )
-            """
-        ],
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_declaration) @function
-            )
-            """,
-            """
-            (
-              (comment)* @comment.function
-              .
-              (method_declaration) @function
-            )
-            """,
-        ],
-        "variable": [
-            """
-            (
-              (comment)* @comment.variable
-              .
-              (var_declaration) @variable
-            )
-            """
-        ],
-        "constant": [
-            """
-            (
-              (comment)* @comment.constant
-              .
-              (const_declaration) @constant
-            )
-            """
-        ],
-        # Go import和package通常不需要合并，因为Go有import块的概念
-        "_merge_config": {
-            # Go一般不需要合并，因为有import()语法
-        },
-    },
-    "javascript": {
-        "import": [
-            """
-            (
-              (comment)* @comment.import
-              .
-              (import_statement) @import
-            )
-            """
-        ],
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_declaration) @function
-            )
-            """,
-            """
-            (
-              (comment)* @comment.function
-              .
-              (method_definition) @function
-            )
-            """,
-            """
-            (
-              (comment)* @comment.function
-              .
-              (lexical_declaration
-                (variable_declarator
-                    value: (arrow_function)
-                )
-              ) @function
-            )
-            """,
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class_declaration) @class
-            )
-            """
-        ],
-        "variable": [
-            """
-            (
-              (comment)* @comment.variable
-              .
-              (lexical_declaration) @variable
-            )
-            """,
-            """
-            (
-              (comment)* @comment.variable
-              .
-              (variable_declaration) @variable
-            )
-            """,
-        ],
-        "export": [
-            """
-            (
-              (comment)* @comment.export
-              .
-              (export_statement) @export
-            )
-            """
-        ],
-        "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-            "export": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-            "variable": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-        },
-    },
-    "typescript": {
-        "import": [
-            """
-            (
-              (comment)* @comment.import
-              .
-              (import_statement) @import
-            )
-            """
-        ],
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_declaration) @function
-            )
-            """,
-            """
-            (
-              (comment)* @comment.function
-              .
-              (method_definition) @function
-            )
-            """,
-            """
-            (
-              (comment)* @comment.function
-              .
-              (lexical_declaration
-                (variable_declarator
-                    value: (arrow_function)
-                )
-              ) @function
-            )
-            """,
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class_declaration) @class
-            )
-            """
-        ],
-        "interface": [
-            """
-            (
-              (comment)* @comment.interface
-              .
-              (interface_declaration) @interface
-            )
-            """
-        ],
-        "type_alias": [
-            """
-            (
-              (comment)* @comment.type_alias
-              .
-              (type_alias_declaration) @type_alias
-            )
-            """
-        ],
-        "enum": [
-            """
-            (
-              (comment)* @comment.enum
-              .
-              (enum_declaration) @enum
-            )
-            """
-        ],
-        "variable": [
-            """
-            (
-              (comment)* @comment.variable
-              .
-              (lexical_declaration) @variable
-            )
-            """,
-            """
-            (
-              (comment)* @comment.variable
-              .
-              (variable_declaration) @variable
-            )
-            """,
-        ],
-        "export": [
-            """
-            (
-              (comment)* @comment.export
-              .
-              (export_statement) @export
-            )
-            """
-        ],
-        "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-            "export": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-            "type_alias": {
-                "enabled": True,
-                "max_gap_lines": -1,
-                "preserve_order": True,
-            },
-            "variable": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-        },
-    },
-    "java": {
-        "import": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.import
-              .
-              (import_declaration) @import
-            )
-            """,
-        ],
-        "class": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.class
-              .
-              (class_declaration) @class
-            )
-            """
-        ],
-        "interface": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.interface
-              .
-              (interface_declaration) @interface
-            )
-            """
-        ],
-        "enum": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.enum
-              .
-              (enum_declaration
-                body:(enum_body)
-              ) @enum
-            )
-            """
-        ],
-        "function": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.function
-              .
-              (method_declaration
-                body:(block)
-              ) @function
-            )
-            """,
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.function
-              .
-              (constructor_declaration
-                body:(constructor_body)
-              ) @function
-            )
-            """,
-        ],
-        # Java import合并配置 - 这是最需要的
-        "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": -1, "preserve_order": True}
-        },
-    },
-    "rust": {
-        "import": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.import
-              .
-              (use_declaration) @import
-            )
-            """
-        ],
-        "function": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.function
-              .
-              (function_item) @function
-            )
-            """
-        ],
-        "struct": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.struct
-              .
-              (struct_item) @struct
-            )
-            """
-        ],
-        "enum": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.enum
-              .
-              (enum_item) @enum
-            )
-            """
-        ],
-        "trait": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.trait
-              .
-              (trait_item) @trait
-            )
-            """
-        ],
-        "implementation": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.implementation
-              .
-              (impl_item) @implementation
-            )
-            """
-        ],
-        "module": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.module
-              .
-              (mod_item) @module
-            )
-            """
-        ],
-        "type_alias": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.type_alias
-              .
-              (type_item) @type_alias
-            )
-            """
-        ],
-        "constant": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.constant
-              .
-              (const_item) @constant
-            )
-            """
-        ],
-        "macro": [
-            """
-            (
-              [
-                (line_comment)
-                (block_comment)
-              ]* @comment.macro
-              .
-              (macro_definition) @macro
-            )
-            """
-        ],
-        # Rust use语句合并配置
-        "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": 2, "preserve_order": True},
-            "type_alias": {"enabled": True, "max_gap_lines": 2, "preserve_order": True},
-            "constant": {"enabled": True, "max_gap_lines": 2, "preserve_order": True},
-        },
-    },
-    "c": {
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_definition) @function
-            )
-            """
-        ],
-        "struct": [
-            """
-            (
-              (comment)* @comment.struct
-              .
-              (type_definition 
-                (struct_specifier)
-              ) @struct
-            )
-            """
-        ],
-        "enum": [
-            """
-            (
-              (comment)* @comment.enum
-              .
-              (type_definition 
-                (enum_specifier)
-              ) @enum
-            )
-            """
-        ],
-        "typedef": [
-            """
-            (
-              (comment)* @comment.typedef
-              .
-              (type_definition) @typedef
-            )
-            """
-        ],
-        "variable": [
-            """
-            (
-              (comment)* @comment.variable
-              .
-              (translation_unit
-                (declaration) @variable
-              )
-            )
-            """
-        ],
-        "include": [
-            """
-            (
-              (comment)* @comment.include
-              .
-              (preproc_include) @include
-            )
-            """
-        ],
-        # C include语句合并配置
-        "_merge_config": {
-            "include": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-            "variable": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-            "typedef": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-        },
-    },
-    "cpp": {
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_definition) @function
-            )
-            """
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class_specifier) @class
-            )
-            """
-        ],
-        "struct": [
-            """
-            (
-              (comment)* @comment.struct
-              .
-              (struct_specifier) @struct
-            )
-            """
-        ],
-        "enum": [
-            """
-            (
-              (comment)* @comment.enum
-              .
-              (enum_specifier) @enum
-            )
-            """
-        ],
-        "namespace": [
-            """
-            (
-              (comment)* @comment.namespace
-              .
-              (namespace_definition) @namespace
-            )
-            """
-        ],
-        "template": [
-            """
-            (
-              (comment)* @comment.template
-              .
-              (template_declaration) @template
-            )
-            """
-        ],
-        "typedef": [
-            """
-            (
-              (comment)* @comment.typedef
-              .
-              (type_definition) @typedef
-            )
-            """
-        ],
-        "include": [
-            """
-            (
-              (comment)* @comment.include
-              .
-              (preproc_include) @include
-            )
-            """
-        ],
-        "macro": [
-            """
-            (
-              (comment)* @comment.macro
-              .
-              (preproc_def) @macro
-            )
-            """,
-            """
-            (
-              (comment)* @comment.macro
-              .
-              (preproc_ifdef) @macro
-            )
-
-            """,
-        ],
-        # C++ include语句合并配置
-        "_merge_config": {
-            "include": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-            "macro": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
-        },
-    },
-    "lua": {
-        "function": [
-            """(function_declaration) @function""",
-            """(function_definition) @function""",
-        ],
-        # "variable": ["""(variable_declaration) @variable"""],
-        # "assignment": ["""(assignment_statement) @assignment"""],
-        # "table": ["""(table_constructor) @table"""],
-        # # Lua合并配置 - 合并相邻的相同类型定义
-        # "_merge_config": {
-        #     "function": {"enabled": True, "max_gap_lines": 1, "preserve_order": True},
-        #     "variable": {"enabled": True, "max_gap_lines": 1, "preserve_order": True},
-        # },
-    },
-    "php": {
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_definition) @function
-            )
-            """
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class_declaration) @class
-            )
-            """
-        ],
-        "interface": [
-            """
-            (
-              (comment)* @comment.interface
-              .
-              (interface_declaration) @interface
-            )
-            """
-        ],
-        "trait": [
-            """
-            (
-              (comment)* @comment.trait
-              .
-              (trait_declaration) @trait
-            )
-            """
-        ],
-        "namespace": [
-            """
-            (
-              (comment)* @comment.namespace
-              .
-              (namespace_definition) @namespace
-            )
-            """
-        ],
-        "include": [
-            """
-            (
-              (comment)* @comment.include
-              .
-              (include_expression) @include
-            )
-            """,
-            """
-            (
-              (comment)* @comment.include
-              .
-              (require_expression) @include
-            )
-            """,
-        ],
-        # PHP include/require语句合并配置
-        "_merge_config": {
-            "include": {"enabled": True, "max_gap_lines": 2, "preserve_order": True}
-        },
-    },
-    "ruby": {
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (method) @function
-            )
-            """
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class) @class
-            )
-            """
-        ],
-        "module": [
-            """
-            (
-              (comment)* @comment.module
-              .
-              (module) @module
-            )
-            """
-        ],
-        "constant": [
-            """
-            (
-              (comment)* @comment.constant
-              .
-              (constant) @constant
-            )
-            """
-        ],
-    },
-    "swift": {
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_declaration) @function
-            )
-            """
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class_declaration) @class
-            )
-            """
-        ],
-        "struct": [
-            """
-            (
-              (comment)* @comment.struct
-              .
-              (struct_declaration) @struct
-            )
-            """
-        ],
-        "enum": [
-            """
-            (
-              (comment)* @comment.enum
-              .
-              (enum_declaration) @enum
-            )
-            """
-        ],
-        "protocol": [
-            """
-            (
-              (comment)* @comment.protocol
-              .
-              (protocol_declaration) @protocol
-            )
-            """
-        ],
-        "extension": [
-            """
-            (
-              (comment)* @comment.extension
-              .
-              (extension_declaration) @extension
-            )
-            """
-        ],
-        "import": [
-            """
-            (
-              (comment)* @comment.import
-              .
-              (import_declaration) @import
-            )
-            """
-        ],
-        # Swift import语句合并配置
-        "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": 1, "preserve_order": True}
-        },
-    },
-    "kotlin": {
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_declaration) @function
-            )
-            """
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class_declaration) @class
-            )
-            """
-        ],
-        "interface": [
-            """
-            (
-              (comment)* @comment.interface
-              .
-              (interface_declaration) @interface
-            )
-            """
-        ],
-        "enum": [
-            """
-            (
-              (comment)* @comment.enum
-              .
-              (enum_declaration) @enum
-            )
-            """
-        ],
-        "object": [
-            """
-            (
-              (comment)* @comment.object
-              .
-              (object_declaration) @object
-            )
-            """
-        ],
-        "import": [
-            """
-            (
-              (comment)* @comment.import
-              .
-              (import_header) @import
-            )
-            """
-        ],
-        # Kotlin import语句合并配置
-        "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": 1, "preserve_order": True}
-        },
-    },
-    "scala": {
-        "function": [
-            """
-            (
-              (comment)* @comment.function
-              .
-              (function_definition) @function
-            )
-            """
-        ],
-        "class": [
-            """
-            (
-              (comment)* @comment.class
-              .
-              (class_definition) @class
-            )
-            """
-        ],
-        "object": [
-            """
-            (
-              (comment)* @comment.object
-              .
-              (object_definition) @object
-            )
-            """
-        ],
-        "trait": [
-            """
-            (
-              (comment)* @comment.trait
-              .
-              (trait_definition) @trait
-            )
-            """
-        ],
-        "import": [
-            """
-            (
-              (comment)* @comment.import
-              .
-              (import_declaration) @import
-            )
-            """
-        ],
-        # Scala import语句合并配置
-        "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": 2, "preserve_order": True}
-        },
-    },
-}
+from lang_node_map import LANGUAGE_NODE_MAP
 
 
 class CodeBlock:
@@ -2023,70 +1006,139 @@ def get_all_test_cases():
         "php": {
             "name": "PHP",
             "code": """
-    <?php
-    // 命名空间定义
-    namespace App\\Models;
+<?php
+// 0. 声明严格类型（type_declaration）
+declare(strict_types=1);
+
+// 1. 命名空间定义（namespace_definition）
+namespace App\\Models;
+
+// 2. 使用声明分组（group_use_declaration）
+use App\\{
+    Contracts\\Repository,
+    Events\\UserEvent
+};
+
+// 3. 文件包含（include_expression）
+require_once 'vendor/autoload.php';
+include 'config/database.php';
+
+// 4. 接口定义（interface_declaration）
+interface UserRepositoryInterface {
+    public function findById(int $id): ?User;
+    public function save(User $user): bool;
+}
+
+// 5. Trait定义（trait_declaration）
+trait TimestampsTrait {
+    protected $created_at;  // property_declaration
+    protected $updated_at;
     
-    // 文件包含
-    require_once 'vendor/autoload.php';
-    include_once 'config/database.php';
-    
-    // 接口定义
-    interface UserRepositoryInterface {
-        // 用户仓储接口
-        public function findById(int $id): ?User;
-        public function save(User $user): bool;
+    public function updateTimestamps(): void {
+        $this->updated_at = date('Y-m-d H:i:s');  // function_call_expression
     }
+}
+
+// 6. 类定义（class_declaration）
+#[ORM\Entity]  // attribute (PHP8)
+final class User implements UserRepositoryInterface {
+    use TimestampsTrait;
+
+    const STATUS_ACTIVE = 1;  // class_const_declaration
+    public static int $count = 0;  // static_variable_declaration
     
-    // Trait定义
-    trait TimestampsTrait {
-        // 时间戳特征
-        protected $created_at;
-        protected $updated_at;
-        
-        public function updateTimestamps(): void {
-            // 更新时间戳
-            $this->updated_at = date('Y-m-d H:i:s');
+    public function __construct(
+        private int $id,          // promoted_property (PHP8)
+        private string $name,
+        private ?string $email
+    ) {
+        $this->created_at = date('Y-m-d H:i:s');
+        self::$count++;
+    }
+
+    // 7. 析构方法（__destruct）
+    public function __destruct() {
+        self::$count--;
+    }
+
+    // 8. 生成器方法（yield_expression）
+    public function getPosts(): Generator {
+        foreach ($this->posts as $post) {
+            yield $post->title;
         }
     }
-    
-    // 类定义
-    class User {
-        // 用户类
-        use TimestampsTrait;
-        
-        private int $id;
-        private string $name;
-        private string $email;
-        
-        // 构造函数
-        public function __construct(int $id, string $name, string $email) {
-            // 用户构造函数
-            $this->id = $id;
-            $this->name = $name;
-            $this->email = $email;
-            $this->created_at = date('Y-m-d H:i:s');
-        }
-        
-        // 方法定义
-        public function getName(): string {
-            // 获取用户名
-            return $this->name;
-        }
-        
-        public function setName(string $name): void {
-            // 设置用户名
-            $this->name = $name;
-            $this->updateTimestamps();
-        }
+
+    // 9. 匿名类（anonymous_class_creation_expression）
+    public function createLogger(): object {
+        return new class extends Logger {
+            public function log(string $message): void {
+                file_put_contents('app.log', $message);
+            }
+        };
     }
-    
-    // 函数定义
-    function validateEmail(string $email): bool {
-        // 验证邮箱格式
-        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+}
+
+// 10. 枚举定义（enum_declaration，PHP8.1）
+enum UserStatus: int {
+    case Active = 1;      // enum_case_declaration
+    case Inactive = 0;
+}
+
+// 11. 匹配表达式（match_expression，PHP8.0）
+function getStatusText(UserStatus $status): string {
+    return match($status) {
+        UserStatus::Active => 'Active',
+        UserStatus::Inactive => 'Inactive'
+    };
+}
+
+// 12. 箭头函数（arrow_function，PHP7.4）
+$multiplier = fn($x) => $x * 2;
+
+// 13. 空安全操作符（nullsafe_member_call_expression，PHP8.0）
+$country = $user?->getAddress()?->country;
+
+// 14. 联合类型（union_type，PHP8.0）
+function process(int|string $input): mixed {
+    // 15. switch语句（switch_statement）
+    switch (true) {
+        case is_int($input):
+            return $input * 2;
+        default:
+            return strtoupper($input);
     }
-    ?>
+}
+
+// 16. try-catch-finally（try_statement）
+try {
+    new PDO('mysql:host=localhost');
+} catch (PDOException $e) {
+    error_log($e);
+} finally {
+    echo 'Cleanup';
+}
+
+// 17. 属性语法（attribute，PHP8）
+<<<
+User
+    @@Deprecated("Use newUser instead", 1.2)
+>>>  // heredoc_string
+class LegacyUser {}
+
+// 18. 可变参数（variadic_parameter）
+function merge(...$arrays): array {
+    return array_merge(...$arrays);
+}
+
+// 19. 类型别名（type_alias）
+class_alias('App\\Models\\User', 'User');
+
+// 20. 嵌套HTML（text_interpolation）
+?>
+<h1>User List</h1>
+<?php foreach ($users as $user): ?>
+    <p><?= htmlspecialchars($user->name) ?></p>
+<?php endforeach; ?>
     """,
         },
         "ruby": {
@@ -2431,132 +1483,626 @@ def get_all_test_cases():
         "lua": {
             "name": "Lua",
             "code": """
-    --[[
-    这是一个旨在覆盖所有 Lua Tree-sitter 节点类型的综合测试文件。
-    ]]
+-- lua/doodle/agent.lua
+local utils = require("doodle.utils")
+local task = require("doodle.task")
+local context = require("doodle.context")
+local prompt = require("doodle.prompt")
+local tool = require("doodle.tool")
+local provider = require("doodle.provider")
+local M = {}
 
-    -- 1. 变量声明和字面量 (Variable Declarations & Literals)
-    -- 全局变量, nil 和布尔值
-    global_var = nil
-    is_active = true
+-- Agent 状态
+M.AGENT_STATUS = {
+	IDLE = "idle",
+	THINKING = "thinking",
+	WORKING = "working",
+	PAUSED = "paused",
+	STOPPED = "stopped",
+}
 
-    -- 本地变量, 数字 (整数, 浮点数, 科学记数法)
-    local num, hex_num = 123, 0xFF
-    local float_num = 0.5e-3
+-- Agent 实例
+M.current_agent = nil
 
-    -- 字符串 (单引号, 双引号, 长字符串)
-    local single_quote = 'hello'
-    local double_quote = "world"
-    local long_string = [[
-    这是一个
-    带有换行的长字符串。
-    ]]
+-- Agent 类
+local Agent = {}
+Agent.__index = Agent
 
-    -- 2. Table (构造和索引)
-    local my_table = {
-    "list_value_1", -- 列表部分
-    key = "record_value", -- 记录部分
-    ["another-key"] = false,
-    [hex_num] = "value from hex key",
-    10.5, -- 列表部分
-    ; -- 可选的分隔符
-    }
-    local accessed_val = my_table.key
-    local other_val = my_table["another-key"]
+local TEstFunction = function(name)
+    print(name)
+end
 
-    -- 3. 表达式和操作符 (Expressions & Operators)
-    -- 算术, 连接, 长度
-    local calculation = (num + 1) * 2 ^ 3 / 4 % 3
-    local full_str = single_quote .. " " .. double_quote
-    local list_len = #my_table
+-- 创建新的Agent实例
+function Agent.new(callbacks)
+	local self = setmetatable({}, Agent)
 
-    -- 关系和逻辑
-    if (list_len > 1 and not other_val) or global_var ~= nil then
-    print("Condition met")
-    elseif calculation <= 0 then
-    print("Calculation is zero or negative")
-    else
-    print("Default case")
-    end
+	self.id = utils.generate_uuid()
+	self.status = M.AGENT_STATUS.IDLE
+	self.callbacks = callbacks or {}
+	self.current_task_id = nil
+	self.current_context_id = nil
+	self.loop_running = false
+	self.stop_requested = false
+	self.created_at = utils.get_timestamp()
 
-    -- 位操作 (Lua 5.3+)
-    local bit_ops = (num & 0xF0) | (num ~ 0x0F) << 1 >> 2
+	utils.log("dev", "新 Agent 已创建, ID: " .. self.id)
+	return self
+end
 
-    -- 4. 函数 (定义, 调用, 方法, 可变参数)
-    -- 全局函数
-    function global_func(a, b)
-    return a + b, a - b -- 多返回值
-    end
+-- 启动Agent
+function Agent:start(query)
+	if self.status ~= M.AGENT_STATUS.IDLE then
+		utils.log("warn", "Agent 已经在运行中，无法启动新任务")
+		return false
+	end
 
-    -- 本地函数和可变参数
-    local function variadic_func(...)
-    local args = { ... }
-    return #args
-    end
+	utils.log("dev", "Agent:start 调用, 查询: " .. query)
 
-    -- 匿名函数 (lambda)
-    local mult = function(x, y) return x * y end
+	self:trigger_callback("on_start")
 
-    local sum, diff = global_func(10, 4) -- 多重赋值
-    local arg_count = variadic_func(1, 2, "a")
+	self.status = M.AGENT_STATUS.THINKING
+	self.stop_requested = false
 
-    -- 5. 控制流 (Control Flow)
-    local i = 5
-    while i > 0 do
-    i = i - 1
-    if i == 2 then
-        break -- break 语句
-    end
-    end
+	utils.log("dev", "Agent 状态设置为 THINKING, 准备思考任务")
+	-- 创建新上下文
+	self.current_context_id = context.create_context()
+	context.add_message(self.current_context_id, "user", query)
 
-    repeat
-    i = i + 1
-    until i >= 10
+	-- 启动思考任务阶段
+	self:think_task(query)
 
-    -- 数字 for 循环
-    for j = 1, 10, 2 do
-    if j == 5 then goto skip_label end
-    end
+	return true
+end
 
-    ::skip_label:: -- 标签 (label)
+-- 思考任务阶段
+function Agent:think_task(query)
+	self.status = M.AGENT_STATUS.THINKING
+	self.stop_requested = false
 
-    -- 泛型 for 循环
-    for k, v in pairs(my_table) do
-    print(k, v)
-    end
+	utils.log("dev", "Agent 状态设置为 THINKING, 准备启动主循环")
+	-- 创建新任务和上下文
+	self.current_task_id = task.create_task(query)
 
-    -- 6. 面向对象和元表 (OOP & Metatables)
-    local MyClass = {}
-    MyClass.__index = MyClass
+	-- 获取可用工具列表
+	local available_tools = tool.get_all_function_call_formats()
 
-    function MyClass:new(name) -- 方法定义 (使用 :)
-    local obj = setmetatable({}, self)
-    obj.name = name
-    return obj
-    end
+	-- 调用Provider
+	local messages = context.get_formatted_messages(self.current_context_id)
+	local options = {
+		stream = true,
+		tools = available_tools,
+		max_tokens = 2048,
+	}
 
-    function MyClass:greet()
-    print("Hello, " .. self.name)
-    end
+	local response_buffer = ""
+	local function_call_buffer = {}
 
-    -- 元方法
-    setmetatable(MyClass, {
-    __tostring = function() return "MyClassType" end,
-    __call = function(cls, ...) return cls:new(...) end,
-    })
+	provider.request(messages, options, function(content, meta)
+		if meta and meta.error then
+			self:output("❌ 错误: " .. (meta.error or "未知错误"))
+			self:stop()
+			return
+		end
 
-    local instance = MyClass:new("Lua") -- 方法调用
-    instance:greet()
+		if meta and meta.done then
+			-- 处理完整的响应
+			if #function_call_buffer > 0 then
+				self:handle_function_calls(function_call_buffer)
+			elseif response_buffer ~= "" then
+				context.add_assistant_message(self.current_context_id, response_buffer)
+				self:output("💡 " .. response_buffer)
+				-- 直接文本回复完成，停止Agent
+				self:stop()
+			else
+				-- 没有内容，也要停止Agent
+				self:stop()
+			end
+			return
+		end
 
-    local another_instance = MyClass("Metatable-Call") -- 使用 __call 元方法
+		if meta and meta.type == "content" and content then
+			response_buffer = response_buffer .. content
+			self:output(content, { append = true })
+		elseif meta and meta.type == "function_call" and content then
+			table.insert(function_call_buffer, content)
+		end
+	end)
+end
 
-    -- 7. 模块系统
-    local path = require("path") -- 模块导入
+-- 处理函数调用
+function Agent:handle_function_calls(function_calls)
+	for _, func_call in ipairs(function_calls) do
+		local tool_name = func_call.name
+		local arguments = func_call.arguments
 
-    local aaa = function()
-    end
+		-- 解析参数
+		local success, parsed_args = pcall(vim.json.decode, arguments)
+		if success then
+			utils.log("info", "执行工具: " .. tool_name)
+			self:output("🔧 执行工具: " .. tool_name)
 
-    return my_table -- 模块返回值
+			-- 执行工具
+			local result = tool.execute_tool(tool_name, parsed_args)
+
+			-- 添加工具消息到上下文
+			context.add_tool_message(
+				self.current_context_id,
+				tool_name,
+				func_call.call_id or utils.generate_uuid(),
+				vim.json.encode(result)
+			)
+
+			-- 处理特殊工具的结果
+			if tool_name == "think_task" then
+				self:handle_think_task_result(result)
+			elseif tool_name == "finish_task" then
+				self:handle_finish_task_result(result)
+			else
+				self:output("✅ 工具执行结果: " .. (result.message or "完成"))
+			end
+		else
+			utils.log("error", "解析函数参数失败: " .. arguments)
+			self:output("❌ 函数参数解析失败")
+		end
+	end
+end
+
+-- 处理think_task结果
+function Agent:handle_think_task_result(result)
+	if result.success then
+		self.current_task_id = result.task_id
+		self:output("📝 任务创建成功!")
+		self:output("📋 任务描述: " .. result.task_description)
+		self:output("✅ 包含 " .. #result.todos .. " 个待办事项")
+
+		-- 列出todos
+		for i, todo in ipairs(result.todos) do
+			self:output("  " .. i .. ". " .. todo)
+		end
+
+		-- 开始工作循环
+		self:start_work_loop()
+	else
+		self:output("❌ 任务创建失败: " .. (result.error or "未知错误"))
+		self:stop()
+	end
+end
+
+-- 处理finish_task结果
+function Agent:handle_finish_task_result(result)
+	if result.success then
+		self:output("🎉 任务完成!")
+		self:output("📄 总结: " .. result.summary)
+		self:stop()
+	else
+		self:output("❌ 任务完成标记失败: " .. (result.error or "未知错误"))
+		self:stop()
+	end
+end
+
+-- 开始工作循环
+function Agent:start_work_loop()
+	self.status = M.AGENT_STATUS.WORKING
+	self.loop_running = true
+	self:output("🚀 开始执行任务...")
+
+	-- 异步执行工作循环
+	vim.schedule(function()
+		self:work_loop()
+	end)
+end
+
+-- 工作循环
+function Agent:work_loop()
+	if self.stop_requested or not self.loop_running then
+		return
+	end
+
+	-- 检查任务是否完成
+	if task.is_task_complete(self.current_task_id) then
+		self:output("✅ 所有任务已完成")
+		self:stop()
+		return
+	end
+
+	-- 获取下一个待执行的todo
+	local next_todo = task.get_next_todo(self.current_task_id)
+	if not next_todo then
+		self:output("ℹ️  没有更多待办事项，任务可能已完成")
+		self:stop()
+		return
+	end
+
+	-- 标记todo为进行中
+	task.update_todo_status(self.current_task_id, next_todo.id, task.TODO_STATUS.IN_PROGRESS)
+
+	self:output("📌 正在处理: " .. next_todo.description)
+
+	-- 处理当前todo
+	self:process_todo(next_todo)
+end
+
+-- 处理单个todo
+function Agent:process_todo(todo)
+	-- 准备消息
+	local todo_message = "请完成以下任务: " .. todo.description
+	context.add_user_message(self.current_context_id, todo_message)
+
+	-- 获取可用工具
+	local available_tools = tool.get_all_function_call_formats()
+
+	-- 调用Provider
+	local messages = context.get_formatted_messages(self.current_context_id)
+	local options = {
+		stream = true,
+		tools = available_tools,
+		max_tokens = 2048,
+	}
+
+	local response_buffer = ""
+	local function_call_buffer = {}
+
+	provider.request(messages, options, function(content, meta)
+		print("agent:process_todo.request.callback" .. content)
+		if meta and meta.error then
+			self:output("❌ 错误: " .. (meta.error or "未知错误"))
+			task.update_todo_status(self.current_task_id, todo.id, task.TODO_STATUS.FAILED, "API请求失败")
+			self:continue_work_loop()
+			return
+		end
+
+		if meta and meta.done then
+			-- 处理完整的响应
+			if #function_call_buffer > 0 then
+				self:handle_function_calls(function_call_buffer)
+			elseif response_buffer ~= "" then
+				context.add_assistant_message(self.current_context_id, response_buffer)
+			end
+
+			-- 继续工作循环
+			self:continue_work_loop()
+			return
+		end
+
+		if meta and meta.type == "content" and content then
+			response_buffer = response_buffer .. content
+			self:output(content, { append = true })
+		elseif meta and meta.type == "function_call" and content then
+			table.insert(function_call_buffer, content)
+		end
+	end)
+end
+
+-- 继续工作循环
+function Agent:continue_work_loop()
+	if self.loop_running and not self.stop_requested then
+		-- 延迟一下继续循环，避免过快的递归
+		vim.defer_fn(function()
+			self:work_loop()
+		end, 100)
+	end
+end
+
+-- 停止Agent
+function Agent:stop()
+	if self.status == M.AGENT_STATUS.STOPPED then
+		utils.log("dev", "Agent.stop 调用但状态已经是STOPPED，跳过")
+		return
+	end
+	utils.log("dev", "Agent.stop 调用, 原状态: " .. self.status)
+	self.stop_requested = true
+	self.status = M.AGENT_STATUS.STOPPED
+	utils.log("dev", "Agent状态已设置为: " .. self.status)
+	self:trigger_callback("on_stop")
+	utils.log("dev", "Agent.stop 完成，已触发on_stop回调")
+end
+
+-- 暂停Agent
+function Agent:pause()
+	if self.status == M.AGENT_STATUS.WORKING then
+		utils.log("dev", "Agent.pause 调用, 状态设置为 PAUSED")
+		self.status = M.AGENT_STATUS.PAUSED
+		self:trigger_callback("on_pause")
+		return true
+	end
+	return false
+end
+
+-- 恢复Agent
+function Agent:resume()
+	if self.status == M.AGENT_STATUS.PAUSED then
+		utils.log("dev", "Agent.resume 调用, 状态恢复为 WORKING")
+		self.status = M.AGENT_STATUS.WORKING
+		self:trigger_callback("on_resume")
+		return true
+	end
+	return false
+end
+
+-- 触发回调
+function Agent:trigger_callback(event, ...)
+	if self.callbacks and self.callbacks[event] then
+		utils.log("dev", "触发回调: " .. event, { ... })
+		pcall(self.callbacks[event], ...)
+	end
+end
+
+-- 输出消息
+function Agent:output(message, options)
+	print("agent:output" .. message)
+	options = options or {}
+
+	if self.callbacks.on_output then
+		self.callbacks.on_output(message, options)
+	end
+
+	-- 同时记录到日志
+	utils.log("info", "Agent输出: " .. message)
+end
+
+-- 获取Agent状态
+function Agent:get_status()
+	return {
+		id = self.id,
+		status = self.status,
+		current_task_id = self.current_task_id,
+		current_context_id = self.current_context_id,
+		loop_running = self.loop_running,
+		stop_requested = self.stop_requested,
+		created_at = self.created_at,
+	}
+end
+
+-- 获取任务进度
+function Agent:get_progress()
+	if not self.current_task_id then
+		return 0
+	end
+
+	return task.get_task_progress(self.current_task_id)
+end
+
+-- 获取任务详情
+function Agent:get_task_details()
+	if not self.current_task_id then
+		return nil
+	end
+
+	return task.get_task_details(self.current_task_id)
+end
+
+-- 取消当前任务
+function Agent:cancel_task()
+	if self.current_task_id then
+		task.cancel_task(self.current_task_id)
+		self:output("❌ 任务已取消")
+		self:stop()
+		return true
+	end
+	return false
+end
+
+-- 模块级别的函数
+
+-- 初始化Agent模块
+function M.init(config)
+	M.config = config
+	M.current_agent = nil
+	utils.log("info", "Agent模块初始化完成")
+end
+
+-- 启动新的Agent
+function M.start(query, callbacks)
+	local is_active = M.current_agent
+		and (M.current_agent.status == M.AGENT_STATUS.THINKING or M.current_agent.status == M.AGENT_STATUS.WORKING)
+
+	-- 添加调试日志
+	if M.current_agent then
+		utils.log("dev", "检查Agent状态: " .. M.current_agent.status)
+		utils.log("dev", "THINKING状态: " .. M.AGENT_STATUS.THINKING)
+		utils.log("dev", "WORKING状态: " .. M.AGENT_STATUS.WORKING)
+		utils.log("dev", "STOPPED状态: " .. M.AGENT_STATUS.STOPPED)
+		utils.log("dev", "is_active结果: " .. tostring(is_active))
+	else
+		utils.log("dev", "当前没有Agent实例")
+	end
+
+	if is_active then
+		utils.log("warn", "已有Agent在运行中，请等待其完成后再启动新任务。")
+		-- 可以在这里触发一个UI错误提示
+		local ui = require("doodle.ui")
+		ui.output_error("正在处理中，请等待完成后再发送新消息")
+		return false
+	end
+
+	M.current_agent = Agent.new(callbacks)
+	return M.current_agent:start(query)
+end
+
+-- 发送消息给Agent
+function M.send_message(message, callbacks)
+	-- 获取UI实例用于回调
+	local ui = require("doodle.ui")
+
+	-- 设置默认回调
+	local default_callbacks = {
+		on_start = function()
+			ui.on_generate_start()
+			utils.log("info", "开始处理消息: " .. message:sub(1, 50) .. "...")
+			utils.log("dev", "Agent on_start 回调触发")
+		end,
+
+		on_progress = function(progress)
+			if progress.type == "tool_use" then
+				ui.on_tool_calling(progress.tool_name)
+				utils.log("dev", "Agent on_progress 回调触发: tool_use - " .. progress.tool_name)
+			end
+		end,
+
+		on_chunk = function(chunk)
+			if chunk and chunk.content then
+				ui.append(chunk.content, { highlight = ui.highlights.ASSISTANT_MESSAGE })
+				utils.log("dev", "Agent on_chunk 回调触发, 内容: " .. chunk.content)
+			end
+		end,
+
+		on_output = function(message, options)
+			if options and options.append then
+				ui.append(message, { highlight = ui.highlights.ASSISTANT_MESSAGE })
+				utils.log("dev", "Agent on_output 回调触发 (streaming), 内容: " .. message)
+			else
+				ui.output(message, { highlight = ui.highlights.ASSISTANT_MESSAGE })
+				utils.log("dev", "Agent on_output 回调触发 (完整消息), 内容: " .. message)
+			end
+		end,
+
+		on_complete = function(result)
+			ui.on_generate_complete()
+			utils.log("info", "消息处理完成")
+			utils.log("dev", "Agent on_complete 回调触发")
+		end,
+
+		on_error = function(error_msg)
+			ui.on_generate_error(error_msg)
+			utils.log("error", "消息处理失败: " .. (error_msg or "未知错误"))
+			utils.log("dev", "Agent on_error 回调触发")
+		end,
+
+		on_stop = function()
+			ui.on_generate_complete()
+			utils.log("info", "Agent已停止")
+			utils.log("dev", "Agent on_stop 回调触发")
+		end,
+	}
+
+	-- 合并用户提供的回调
+	if callbacks then
+		for key, callback in pairs(callbacks) do
+			default_callbacks[key] = callback
+		end
+	end
+
+	-- 启动新的处理任务
+	return M.start(message, default_callbacks)
+end
+
+-- 停止当前Agent
+function M.stop()
+	if M.current_agent then
+		M.current_agent:stop()
+		return true
+	end
+	return false
+end
+
+-- 暂停当前Agent
+function M.pause()
+	if M.current_agent then
+		return M.current_agent:pause()
+	end
+	return false
+end
+
+-- 恢复当前Agent
+function M.resume()
+	if M.current_agent then
+		return M.current_agent:resume()
+	end
+	return false
+end
+
+-- 获取当前Agent状态
+function M.get_status()
+	if M.current_agent then
+		return M.current_agent:get_status()
+	end
+	return nil
+end
+
+-- 获取当前任务进度
+function M.get_progress()
+	if M.current_agent then
+		return M.current_agent:get_progress()
+	end
+	return 0
+end
+
+-- 获取当前任务详情
+function M.get_task_details()
+	if M.current_agent then
+		return M.current_agent:get_task_details()
+	end
+	return nil
+end
+
+-- 取消当前任务
+function M.cancel_task()
+	if M.current_agent then
+		return M.current_agent:cancel_task()
+	end
+	return false
+end
+
+-- 检查Agent是否在运行
+function M.is_running()
+	return M.current_agent and M.current_agent.status ~= M.AGENT_STATUS.STOPPED
+end
+
+-- 获取Agent历史
+function M.get_history()
+	if M.current_agent and M.current_agent.current_context_id then
+		return context.get_messages(M.current_agent.current_context_id)
+	end
+	return {}
+end
+
+-- 清理Agent资源
+function M.cleanup()
+	if M.current_agent then
+		M.current_agent:stop()
+
+		-- 清理上下文
+		if M.current_agent.current_context_id then
+			context.delete_context(M.current_agent.current_context_id)
+		end
+
+		M.current_agent = nil
+	end
+
+	utils.log("info", "Agent资源清理完成")
+end
+
+-- 重置Agent
+function M.reset()
+	M.cleanup()
+	utils.log("info", "Agent重置完成")
+end
+
+-- 获取Agent统计信息
+function M.get_stats()
+	local stats = {
+		current_agent = M.current_agent and M.current_agent:get_status() or nil,
+		is_running = M.is_running(),
+		total_tasks = task.count_tasks and task.count_tasks() or 0,
+		active_tasks = #task.get_active_tasks(),
+	}
+
+	return stats
+end
+
+-- 导出Agent数据
+function M.export_data()
+	local export_data = {
+		current_agent_status = M.get_status(),
+		history = M.get_history(),
+		task_details = M.get_task_details(),
+		exported_at = utils.get_timestamp(),
+	}
+
+	return export_data
+end
+
+return M
     """,
         },
     }
