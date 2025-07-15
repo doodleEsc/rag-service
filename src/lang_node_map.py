@@ -547,9 +547,13 @@ LANGUAGE_NODE_MAP = {
         ],
         # Rust use语句合并配置
         "_merge_config": {
-            "import": {"enabled": True, "max_gap_lines": 2, "preserve_order": True},
-            "type_alias": {"enabled": True, "max_gap_lines": 2, "preserve_order": True},
-            "constant": {"enabled": True, "max_gap_lines": 2, "preserve_order": True},
+            "import": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
+            "type_alias": {
+                "enabled": True,
+                "max_gap_lines": -1,
+                "preserve_order": True,
+            },
+            "constant": {"enabled": True, "max_gap_lines": -1, "preserve_order": True},
         },
     },
     "c": {
