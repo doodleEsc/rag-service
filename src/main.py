@@ -24,6 +24,7 @@ import chromadb
 import httpx
 import pathspec
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+import tree_sitter
 
 # Local application imports
 from libs.configs import BASE_DATA_DIR, CHROMA_PERSIST_DIR
@@ -45,7 +46,6 @@ from llama_index.core import (
     VectorStoreIndex,
     load_index_from_storage,
 )
-from llama_index.core.node_parser import CodeSplitter
 from llama_index.core.schema import Document
 from llama_index.core.postprocessor import MetadataReplacementPostProcessor
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -68,6 +68,1021 @@ if TYPE_CHECKING:
 
 # Lock file for leader election
 LOCK_FILE = BASE_DATA_DIR / "leader.lock"
+
+# Language node mapping for different programming languages
+LANGUAGE_NODE_MAP = {
+    "python": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_definition) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_definition) @class
+            )
+            """
+        ],
+        "decorated_definition": [
+            """
+            (
+              (comment)* @comment.decorated_definition
+              .
+              (decorated_definition) @decorated_definition
+            )
+            """
+        ],
+        "variable_assignment": [
+            """
+            (
+              (comment)* @comment.variable_assignment
+              .
+              (assignment) @variable_assignment
+            )
+            """
+        ],
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (import_statement) @import
+            )
+            """,
+            """
+            (
+              (comment)* @comment.import
+              .
+              (from_import_statement) @import
+            )
+            """
+        ],
+    },
+    "go": {
+        "package": [
+            """
+            (
+              (comment)* @comment.package
+              .
+              (package_clause) @package
+            )
+            """
+        ],
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (import_declaration) @import
+            )
+            """
+        ],
+        "struct": [
+            """
+            (
+              (comment)* @comment.struct
+              .
+              (type_declaration
+                (type_spec
+                  type: (struct_type)
+                )
+              ) @struct
+            )
+            """
+        ],
+        "interface": [
+            """
+            (
+              (comment)* @comment.interface  
+              .
+              (type_declaration
+                (type_spec type: (interface_type))
+              ) @interface
+            )
+            """
+        ],
+        "type_alias": [
+            """
+            (
+              (comment)* @comment.type_alias
+              .
+              (type_declaration
+                (type_spec
+                  type: (type_identifier)
+                )
+              ) @type_alias
+            )
+            """
+        ],
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_declaration) @function
+            )
+            """,
+            """
+            (
+              (comment)* @comment.function
+              .
+              (method_declaration) @function
+            )
+            """
+        ],
+        "variable": [
+            """
+            (
+              (comment)* @comment.variable
+              .
+              (var_declaration) @variable
+            )
+            """
+        ],
+        "constant": [
+            """
+            (
+              (comment)* @comment.constant
+              .
+              (const_declaration) @constant
+            )
+            """
+        ],
+    },
+    "javascript": {
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (import_statement) @import
+            )
+            """
+        ],
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_declaration) @function
+            )
+            """,
+            """
+            (
+              (comment)* @comment.function
+              .
+              (method_definition) @function
+            )
+            """,
+            """
+            (
+              (comment)* @comment.function
+              .
+              (arrow_function) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_declaration) @class
+            )
+            """
+        ],
+        "variable": [
+            """
+            (
+              (comment)* @comment.variable
+              .
+              (lexical_declaration) @variable
+            )
+            """,
+            """
+            (
+              (comment)* @comment.variable
+              .
+              (variable_declaration) @variable
+            )
+            """
+        ],
+        "export": [
+            """
+            (
+              (comment)* @comment.export
+              .
+              (export_statement) @export
+            )
+            """
+        ],
+    },
+    "typescript": {
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (import_statement) @import
+            )
+            """
+        ],
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_declaration) @function
+            )
+            """,
+            """
+            (
+              (comment)* @comment.function
+              .
+              (method_definition) @function
+            )
+            """,
+            """
+            (
+              (comment)* @comment.function
+              .
+              (arrow_function) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_declaration) @class
+            )
+            """
+        ],
+        "interface": [
+            """
+            (
+              (comment)* @comment.interface
+              .
+              (interface_declaration) @interface
+            )
+            """
+        ],
+        "type_alias": [
+            """
+            (
+              (comment)* @comment.type_alias
+              .
+              (type_alias_declaration) @type_alias
+            )
+            """
+        ],
+        "enum": [
+            """
+            (
+              (comment)* @comment.enum
+              .
+              (enum_declaration) @enum
+            )
+            """
+        ],
+        "class_property": [
+            """
+            (
+              (comment)* @comment.class_property
+              .
+              (public_field_definition) @class_property
+            )
+            """
+        ],
+        "variable": [
+            """
+            (
+              (comment)* @comment.variable
+              .
+              (lexical_declaration) @variable
+            )
+            """,
+            """
+            (
+              (comment)* @comment.variable
+              .
+              (variable_declaration) @variable
+            )
+            """
+        ],
+        "export": [
+            """
+            (
+              (comment)* @comment.export
+              .
+              (export_statement) @export
+            )
+            """
+        ],
+    },
+    "java": {
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (import_declaration) @import
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_declaration) @class
+            )
+            """
+        ],
+        "interface": [
+            """
+            (
+              (comment)* @comment.interface
+              .
+              (interface_declaration) @interface
+            )
+            """
+        ],
+        "enum": [
+            """
+            (
+              (comment)* @comment.enum
+              .
+              (enum_declaration) @enum
+            )
+            """
+        ],
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (method_declaration) @function
+            )
+            """,
+            """
+            (
+              (comment)* @comment.function
+              .
+              (constructor_declaration) @function
+            )
+            """
+        ],
+        "field": [
+            """
+            (
+              (comment)* @comment.field
+              .
+              (field_declaration) @field
+            )
+            """
+        ],
+    },
+    "rust": {
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (use_declaration) @import
+            )
+            """
+        ],
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_item) @function
+            )
+            """
+        ],
+        "struct": [
+            """
+            (
+              (comment)* @comment.struct
+              .
+              (struct_item) @struct
+            )
+            """
+        ],
+        "enum": [
+            """
+            (
+              (comment)* @comment.enum
+              .
+              (enum_item) @enum
+            )
+            """
+        ],
+        "trait": [
+            """
+            (
+              (comment)* @comment.trait
+              .
+              (trait_item) @trait
+            )
+            """
+        ],
+        "implementation": [
+            """
+            (
+              (comment)* @comment.implementation
+              .
+              (impl_item) @implementation
+            )
+            """
+        ],
+        "module": [
+            """
+            (
+              (comment)* @comment.module
+              .
+              (mod_item) @module
+            )
+            """
+        ],
+        "type_alias": [
+            """
+            (
+              (comment)* @comment.type_alias
+              .
+              (type_item) @type_alias
+            )
+            """
+        ],
+        "constant": [
+            """
+            (
+              (comment)* @comment.constant
+              .
+              (const_item) @constant
+            )
+            """
+        ],
+        "macro": [
+            """
+            (
+              (comment)* @comment.macro
+              .
+              (macro_definition) @macro
+            )
+            """
+        ],
+    },
+    "c": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_definition) @function
+            )
+            """
+        ],
+        "struct": [
+            """
+            (
+              (comment)* @comment.struct
+              .
+              (struct_specifier) @struct
+            )
+            """
+        ],
+        "enum": [
+            """
+            (
+              (comment)* @comment.enum
+              .
+              (enum_specifier) @enum
+            )
+            """
+        ],
+        "typedef": [
+            """
+            (
+              (comment)* @comment.typedef
+              .
+              (type_definition) @typedef
+            )
+            """
+        ],
+        "variable": [
+            """
+            (
+              (comment)* @comment.variable
+              .
+              (declaration) @variable
+            )
+            """
+        ],
+        "include": [
+            """
+            (
+              (comment)* @comment.include
+              .
+              (preproc_include) @include
+            )
+            """
+        ],
+    },
+    "cpp": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_definition) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_specifier) @class
+            )
+            """
+        ],
+        "struct": [
+            """
+            (
+              (comment)* @comment.struct
+              .
+              (struct_specifier) @struct
+            )
+            """
+        ],
+        "enum": [
+            """
+            (
+              (comment)* @comment.enum
+              .
+              (enum_specifier) @enum
+            )
+            """
+        ],
+        "namespace": [
+            """
+            (
+              (comment)* @comment.namespace
+              .
+              (namespace_definition) @namespace
+            )
+            """
+        ],
+        "template": [
+            """
+            (
+              (comment)* @comment.template
+              .
+              (template_declaration) @template
+            )
+            """
+        ],
+        "typedef": [
+            """
+            (
+              (comment)* @comment.typedef
+              .
+              (type_definition) @typedef
+            )
+            """
+        ],
+        "include": [
+            """
+            (
+              (comment)* @comment.include
+              .
+              (preproc_include) @include
+            )
+            """
+        ],
+    },
+    "lua": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_declaration) @function
+            )
+            """
+        ],
+        "table_assignment": [
+            """
+            (
+              (comment)* @comment.table_assignment
+              .
+              (assignment_statement) @table_assignment
+            )
+            """
+        ],
+        "local_statement": [
+            """
+            (
+              (comment)* @comment.local_statement
+              .
+              (local_statement) @local_statement
+            )
+            """
+        ],
+    },
+    "php": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_definition) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_declaration) @class
+            )
+            """
+        ],
+        "interface": [
+            """
+            (
+              (comment)* @comment.interface
+              .
+              (interface_declaration) @interface
+            )
+            """
+        ],
+        "trait": [
+            """
+            (
+              (comment)* @comment.trait
+              .
+              (trait_declaration) @trait
+            )
+            """
+        ],
+        "namespace": [
+            """
+            (
+              (comment)* @comment.namespace
+              .
+              (namespace_definition) @namespace
+            )
+            """
+        ],
+        "include": [
+            """
+            (
+              (comment)* @comment.include
+              .
+              (include_expression) @include
+            )
+            """,
+            """
+            (
+              (comment)* @comment.include
+              .
+              (require_expression) @include
+            )
+            """
+        ],
+    },
+    "ruby": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (method) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class) @class
+            )
+            """
+        ],
+        "module": [
+            """
+            (
+              (comment)* @comment.module
+              .
+              (module) @module
+            )
+            """
+        ],
+        "constant": [
+            """
+            (
+              (comment)* @comment.constant
+              .
+              (constant) @constant
+            )
+            """
+        ],
+    },
+    "swift": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_declaration) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_declaration) @class
+            )
+            """
+        ],
+        "struct": [
+            """
+            (
+              (comment)* @comment.struct
+              .
+              (struct_declaration) @struct
+            )
+            """
+        ],
+        "enum": [
+            """
+            (
+              (comment)* @comment.enum
+              .
+              (enum_declaration) @enum
+            )
+            """
+        ],
+        "protocol": [
+            """
+            (
+              (comment)* @comment.protocol
+              .
+              (protocol_declaration) @protocol
+            )
+            """
+        ],
+        "extension": [
+            """
+            (
+              (comment)* @comment.extension
+              .
+              (extension_declaration) @extension
+            )
+            """
+        ],
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (import_declaration) @import
+            )
+            """
+        ],
+    },
+    "kotlin": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_declaration) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_declaration) @class
+            )
+            """
+        ],
+        "interface": [
+            """
+            (
+              (comment)* @comment.interface
+              .
+              (interface_declaration) @interface
+            )
+            """
+        ],
+        "enum": [
+            """
+            (
+              (comment)* @comment.enum
+              .
+              (enum_declaration) @enum
+            )
+            """
+        ],
+        "object": [
+            """
+            (
+              (comment)* @comment.object
+              .
+              (object_declaration) @object
+            )
+            """
+        ],
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (import_header) @import
+            )
+            """
+        ],
+    },
+    "scala": {
+        "function": [
+            """
+            (
+              (comment)* @comment.function
+              .
+              (function_definition) @function
+            )
+            """
+        ],
+        "class": [
+            """
+            (
+              (comment)* @comment.class
+              .
+              (class_definition) @class
+            )
+            """
+        ],
+        "object": [
+            """
+            (
+              (comment)* @comment.object
+              .
+              (object_definition) @object
+            )
+            """
+        ],
+        "trait": [
+            """
+            (
+              (comment)* @comment.trait
+              .
+              (trait_definition) @trait
+            )
+            """
+        ],
+        "import": [
+            """
+            (
+              (comment)* @comment.import
+              .
+              (import_declaration) @import
+            )
+            """
+        ],
+    },
+}
+
+
+class CodeSplitter:
+    """Custom code splitter using tree-sitter for syntax-aware code splitting."""
+
+    def __init__(self, language_map=None):
+        """Initialize the code splitter with language mapping."""
+        self.language_map = language_map or LANGUAGE_NODE_MAP
+
+    def _get_target_node_types(self, language: str) -> dict:
+        """获取指定语言的所有目标节点类型"""
+        lang_map = self.language_map.get(language)
+        if not lang_map:
+            raise ValueError(f"Language '{language}' is not configured.")
+
+        # 将 "function": ["a", "b"] 转换为 "a": "function", "b": "function"
+        # 方便后续处理查询结果
+        target_types = {}
+        for category, node_types in lang_map.items():
+            for node_type in node_types:
+                target_types[node_type] = category
+        return target_types
+
+    def _build_query(self, language: str, target_node_types: dict) -> tree_sitter.Query:
+        """根据目标节点类型动态构建查询"""
+        query_str = ""
+        for node_type, category in target_node_types.items():
+            # 检查是否是完整的查询语法（包含@符号和换行符）
+            if "@" in node_type and "\n" in node_type:
+                # 如果已经是完整查询，直接使用
+                query_str += f"{node_type}\n"
+            else:
+                # 如果是简单节点类型，用标准格式包装
+                query_str += f"({node_type}) @{category}\n"
+
+        logger.debug("Tree-sitter query: %s", query_str)
+
+        # 忽略类型检查错误
+        lang_object = get_language(language)  # type: ignore
+        return lang_object.query(query_str)
+
+    def split_text(self, code: str, language: str) -> dict:
+        """
+        对源代码进行分割，提取出定义的代码块
+
+        :param code: 源代码字符串
+        :param language: 语言名称（如 'python', 'javascript'）
+        :return: 一个字典，键是通用类别，值是提取到的代码块列表
+        """
+        try:
+            code_bytes = bytes(code, "utf8")
+            # 忽略类型检查错误
+            parser = get_parser(language)  # type: ignore
+            tree = parser.parse(code_bytes)
+
+            target_node_types = self._get_target_node_types(language)
+            if not target_node_types:
+                return {}
+
+            query = self._build_query(language, target_node_types)
+            # 使用 matches() 而不是 captures() 来保持节点关联关系
+            matches = query.matches(tree.root_node)
+
+            results = {category: [] for category in self.language_map[language].keys()}
+
+            logger.debug("Total matches found: %d", len(matches))
+
+            # 处理每个匹配，每个匹配中的captures是相关联的
+            for match in matches:
+                # match是一个tuple: (pattern_index, captures_dict)
+                pattern_index, captures_dict = match
+
+                # 找到目标节点和对应的注释
+                for capture_name, nodes in captures_dict.items():
+                    if not capture_name.startswith("comment."):
+                        # 这是目标节点
+                        target_type = capture_name
+                        comment_key = f"comment.{target_type}"
+
+                        for target_node in nodes:
+                            if (
+                                target_node
+                                and hasattr(target_node, "text")
+                                and target_node.text is not None
+                            ):
+                                # 获取这个匹配中对应的注释
+                                comments = captures_dict.get(comment_key, [])
+
+                                # 构建完整的代码块（注释 + 目标节点）
+                                if comments:
+                                    # 按位置排序注释（应该在目标节点之前）
+                                    comments.sort(key=lambda x: x.start_byte)
+                                    comment_text = "\n".join(
+                                        [
+                                            c.text.decode("utf8")
+                                            for c in comments
+                                            if c.text is not None
+                                        ]
+                                    )
+                                    target_text = target_node.text.decode("utf8")
+                                    full_text = comment_text + "\n" + target_text
+                                else:
+                                    full_text = target_node.text.decode("utf8")
+
+                                results[target_type].append(full_text)
+
+            return results
+        except Exception as e:
+            logger.error("Error in tree-sitter code splitting: %s", str(e))
+            # 返回原始代码作为fallback
+            return {"unknown": [code]}
 
 
 def try_acquire_leadership() -> bool:
@@ -891,9 +1906,9 @@ def update_index_for_file(directory: Path, abs_file_path: Path) -> None:
 
 def split_documents(documents: list[Document]) -> list[Document]:
     """Split documents into code and non-code documents."""
-    # Create file parser configuration
-    # Initialize CodeSplitter
-    # Split code documents using CodeSplitter
+    # Initialize CodeSplitter with our language mapping
+    code_splitter = CodeSplitter(LANGUAGE_NODE_MAP)
+
     processed_documents = []
     for doc in documents:
         uri = get_node_uri(doc)
@@ -907,43 +1922,58 @@ def split_documents(documents: list[Document]) -> list[Document]:
         if file_ext in code_ext_map:
             # Apply CodeSplitter to code files
             language = code_ext_map.get(file_ext, "python")
-            parser = get_parser(language)
-            py = get_language("python")
-            code_splitter = CodeSplitter(
-                language=language,  # Default is python, will auto-detect based on file extension
-                chunk_lines=80,  # Maximum number of lines per code block
-                chunk_lines_overlap=15,  # Number of overlapping lines to maintain context
-                max_chars=1500,  # Maximum number of characters per block
-                parser=parser,
-            )
+
             try:
-                t = doc.get_content()
-                texts = code_splitter.split_text(t)
-                print(uri)
-                print(texts)
-                print()
+                content = doc.get_content()
+                if isinstance(content, bytes):
+                    content = content.decode("utf-8", errors="replace")
+
+                # Use our custom code splitter
+                split_results = code_splitter.split_text(content, language)
+
+                logger.debug(
+                    "Split results for %s: %s", uri, list(split_results.keys())
+                )
+
+                # Convert split results to documents
+                chunk_number = 0
+                for category, code_blocks in split_results.items():
+                    for code_block in code_blocks:
+                        if code_block.strip():  # Only include non-empty blocks
+                            new_doc = Document(
+                                text=code_block,
+                                doc_id=f"{doc.doc_id}__part_{chunk_number}",
+                                metadata={
+                                    **doc.metadata,
+                                    "chunk_number": chunk_number,
+                                    "total_chunks": sum(
+                                        len(blocks) for blocks in split_results.values()
+                                    ),
+                                    "language": language,
+                                    "category": category,
+                                    "orig_doc_id": doc.doc_id,
+                                },
+                            )
+                            processed_documents.append(new_doc)
+                            chunk_number += 1
+
+                # If no valid code blocks were found, add the original document
+                if chunk_number == 0:
+                    doc.metadata["orig_doc_id"] = doc.doc_id
+                    doc.metadata["language"] = language
+                    processed_documents.append(doc)
+
             except ValueError as e:
                 logger.error(
                     "Error splitting document: %s, so skipping split, error: %s",
                     doc.doc_id,
                     str(e),
                 )
+                doc.metadata["orig_doc_id"] = doc.doc_id
+                doc.metadata["language"] = language
                 processed_documents.append(doc)
                 continue
 
-            for i, text in enumerate(texts):
-                new_doc = Document(
-                    text=text,
-                    doc_id=f"{doc.doc_id}__part_{i}",
-                    metadata={
-                        **doc.metadata,
-                        "chunk_number": i,
-                        "total_chunks": len(texts),
-                        "language": code_splitter.language,
-                        "orig_doc_id": doc.doc_id,
-                    },
-                )
-                processed_documents.append(new_doc)
         else:
             doc.metadata["orig_doc_id"] = doc.doc_id
             # Add non-code files directly
