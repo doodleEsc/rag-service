@@ -55,7 +55,7 @@ from providers.factory import initialize_embed_model, initialize_llm_model
 from pydantic import BaseModel, Field
 from services.indexing_history import indexing_history_service
 from services.resource import resource_service
-from tree_sitter_language_pack import SupportedLanguage, get_parser
+from tree_sitter_language_pack import SupportedLanguage, get_language, get_parser
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -908,6 +908,7 @@ def split_documents(documents: list[Document]) -> list[Document]:
             # Apply CodeSplitter to code files
             language = code_ext_map.get(file_ext, "python")
             parser = get_parser(language)
+            py = get_language("python")
             code_splitter = CodeSplitter(
                 language=language,  # Default is python, will auto-detect based on file extension
                 chunk_lines=80,  # Maximum number of lines per code block
@@ -918,6 +919,9 @@ def split_documents(documents: list[Document]) -> list[Document]:
             try:
                 t = doc.get_content()
                 texts = code_splitter.split_text(t)
+                print(uri)
+                print(texts)
+                print()
             except ValueError as e:
                 logger.error(
                     "Error splitting document: %s, so skipping split, error: %s",
