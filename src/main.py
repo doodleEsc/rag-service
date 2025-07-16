@@ -39,6 +39,54 @@ from libs.utils import (
     uri_to_path,
 )
 from libs.code_split import LANGUAGE_NODE_MAP, CodeSplitter
+
+# 配置EXTRA_NODE_MAP和NODE_MAP_OVERRIDE
+try:
+    # 获取环境变量
+    extra_node_map_str = os.getenv("EXTRA_NODE_MAP")
+    node_map_override_str = os.getenv("NODE_MAP_OVERRIDE", "false").lower()
+
+    # 解析NODE_MAP_OVERRIDE布尔值
+    node_map_override = node_map_override_str in ("true", "1", "yes", "on")
+
+    if extra_node_map_str:
+        logger.info("Processing EXTRA_NODE_MAP configuration...")
+        extra_node_map = json.loads(extra_node_map_str)
+
+        if node_map_override:
+            # 整体替换模式：language_node_map["go"] = extra_node_map["go"]
+            logger.info("Using override mode: replacing entire language configurations")
+            for language, config in extra_node_map.items():
+                if language in LANGUAGE_NODE_MAP:
+                    logger.info(
+                        "Overriding entire configuration for language: %s", language
+                    )
+                    LANGUAGE_NODE_MAP[language] = config
+                else:
+                    logger.info("Adding new language configuration: %s", language)
+                    LANGUAGE_NODE_MAP[language] = config
+        else:
+            # 规则级别替换模式：language_node_map["go"]["function"] = extra_node_map["go"]["function"]
+            logger.info("Using merge mode: replacing specific rules within languages")
+            for language, extra_config in extra_node_map.items():
+                if language not in LANGUAGE_NODE_MAP:
+                    logger.info("Adding new language configuration: %s", language)
+                    LANGUAGE_NODE_MAP[language] = extra_config
+                else:
+                    logger.info("Merging configuration for language: %s", language)
+                    for rule_type, rule_config in extra_config.items():
+                        logger.info(
+                            "Updating rule '%s' for language '%s'", rule_type, language
+                        )
+                        LANGUAGE_NODE_MAP[language][rule_type] = rule_config
+
+        logger.info("EXTRA_NODE_MAP configuration applied successfully")
+
+except json.JSONDecodeError as e:
+    logger.error("Failed to parse EXTRA_NODE_MAP JSON: %s", e)
+except Exception as e:
+    logger.error("Error processing EXTRA_NODE_MAP configuration: %s", e)
+
 from llama_index.core import (
     Settings,
     SimpleDirectoryReader,
